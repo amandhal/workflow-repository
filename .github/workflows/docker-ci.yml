@@ -17,6 +17,8 @@ on:
         required: true
       DOCKER_PASSWORD:
         required: true
+      SLACK_WEBHOOK:    
+        required: true
 
 jobs:
   tag-image:
@@ -33,6 +35,14 @@ jobs:
         run: |
           docker pull ${{ secrets.DOCKER_USERNAME }}/${{ inputs.image_name }}:${{ inputs.source_tag }}
 
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@v0.35.0
+        with:
+          image-ref: ${{ secrets.DOCKER_USERNAME }}/${{ inputs.image_name }}:${{ inputs.source_tag }}
+          format: table
+          exit-code: 1
+          severity: CRITICAL,HIGH
+      
       - name: Tag image
         run: |
           docker tag \
@@ -42,3 +52,21 @@ jobs:
       - name: Push new tag
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/${{ inputs.image_name }}:${{ inputs.target_tag }}
+
+      - name: Slack Success Notification
+        if: success()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_COLOR: good
+          SLACK_TITLE: "✅ Docker Image Built & Pushed"
+          SLACK_MESSAGE: "Image: ${{ inputs.image_name }}:${{ inputs.target_tag }} was successfully scanned, tagged, and pushed to Docker Hub."
+
+      - name: Slack Failure Notification
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+          SLACK_COLOR: danger
+          SLACK_TITLE: "Workflow Failed ❌"
+          SLACK_MESSAGE: "❌ Push failed for Image: ${{ inputs.image_name }} | Check the Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
