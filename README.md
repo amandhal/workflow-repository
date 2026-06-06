@@ -1,4 +1,4 @@
-# GitHub Actions CI/CD Lab Exam
+# GitHub Actions CI/CD Shared Workflow
 
 ### Task 1 – Hello World Workflow
 ```yaml
